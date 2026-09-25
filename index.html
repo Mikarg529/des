@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dés</title>
+<style>
+  body { margin: 0; background: #14110e; color: #f3eadc; font-family: Georgia, serif; }
+  main { max-width: 520px; margin: 0 auto; padding: 28px 16px 48px; }
+  h1 { font-size: 1.6rem; margin: 0 0 8px; }
+  p { color: #cbb894; margin: 0 0 16px; }
+  input { width: 100%; box-sizing: border-box; font: 1.3rem Georgia, serif; padding: 14px; border-radius: 8px; border: 1px solid #6a5434; background: #221c16; color: #f3eadc; }
+  button { width: 100%; margin-top: 12px; font: 1.2rem Georgia, serif; font-weight: 700; padding: 14px; border-radius: 8px; border: 0; background: #8f2d2d; color: #fff; cursor: pointer; }
+  #out { margin-top: 18px; font-size: 2.4rem; min-height: 1.2em; }
+  #line { margin-top: 8px; color: #d4e8a8; font-size: 0.95rem; word-break: break-word; }
+  #err { color: #ff8b7a; font-size: 1rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Dés</h1>
+  <p>Écris la formule. Appuie sur Tirer. La ligne verte est déjà copiée.</p>
+  <input id="expr" value="1d20" autocomplete="off">
+  <button type="button" id="go">Tirer</button>
+  <div id="out"></div>
+  <div id="line"></div>
+  <div id="err"></div>
+</main>
+<script>
+function rnd(sides) {
+  var max = Math.floor(4294967296 / sides) * sides;
+  var buf = new Uint32Array(1);
+  var x;
+  do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= max);
+  return (x % sides) + 1;
+}
+function roll(expr) {
+  var raw = String(expr).replace(/\s+/g, "");
+  if (!raw) throw new Error("Écris une formule. Exemple : 1d20+5");
+  if (raw[0] !== "+" && raw[0] !== "-") raw = "+" + raw;
+  var parts = raw.match(/[+-][^+-]+/g);
+  if (!parts) throw new Error("Formule illisible.");
+  var total = 0, bruts = [];
+  for (var i = 0; i < parts.length; i++) {
+    var sign = parts[i][0] === "-" ? -1 : 1;
+    var body = parts[i].slice(1);
+    var m = body.match(/^(\d*)d(\d+)$/i);
+    if (m) {
+      var n = parseInt(m[1] || "1", 10);
+      var sides = parseInt(m[2], 10);
+      if (n < 1 || n > 40 || sides < 2 || sides > 100) throw new Error("Dé refusé.");
+      for (var k = 0; k < n; k++) {
+        var r = rnd(sides);
+        bruts.push(r);
+        total += sign * r;
+      }
+    } else if (/^\d+$/.test(body)) {
+      total += sign * parseInt(body, 10);
+    } else {
+      throw new Error("Seulement des dés. Exemple : 1d20+16");
+    }
+  }
+  return { expr: String(expr).replace(/\s+/g, ""), bruts: bruts, total: total };
+}
+document.getElementById("go").onclick = function () {
+  var err = document.getElementById("err");
+  var out = document.getElementById("out");
+  var line = document.getElementById("line");
+  err.textContent = "";
+  try {
+    var g = roll(document.getElementById("expr").value);
+    out.textContent = String(g.total);
+    var text = g.expr + " | brut [" + (g.bruts.join(",") || "—") + "] | total " + g.total;
+    line.textContent = text;
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(function () {});
+  } catch (e) {
+    out.textContent = "";
+    line.textContent = "";
+    err.textContent = String(e.message || e);
+  }
+};
+</script>
+</body>
+</html>
