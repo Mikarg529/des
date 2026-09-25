@@ -8,12 +8,12 @@
   body { margin: 0; background: #14110e; color: #f3eadc; font-family: Georgia, serif; }
   main { max-width: 520px; margin: 0 auto; padding: 28px 16px 48px; }
   h1 { font-size: 1.6rem; margin: 0 0 8px; }
-  p { color: #cbb894; margin: 0 0 16px; }
+  p { color: #cbb894; margin: 0 0 16px; line-height: 1.45; }
   input { width: 100%; box-sizing: border-box; font: 1.3rem Georgia, serif; padding: 14px; border-radius: 8px; border: 1px solid #6a5434; background: #221c16; color: #f3eadc; }
   button { width: 100%; margin-top: 12px; font: 1.2rem Georgia, serif; font-weight: 700; padding: 14px; border-radius: 8px; border: 0; background: #8f2d2d; color: #fff; cursor: pointer; }
   #out { margin-top: 18px; font-size: 2.4rem; min-height: 1.2em; }
   #line { margin-top: 8px; color: #d4e8a8; font-size: 0.95rem; word-break: break-word; }
-  #err { color: #ff8b7a; font-size: 1rem; }
+  #err { color: #ff8b7a; font-size: 1rem; margin-top: 8px; }
   .legend { margin-top: 28px; padding-top: 16px; border-top: 1px solid #3a3228; color: #cbb894; font-size: 0.95rem; line-height: 1.45; }
   .legend strong { color: #f3eadc; }
 </style>
@@ -28,10 +28,11 @@
   <div id="line"></div>
   <div id="err"></div>
   <div class="legend">
-    <p><strong>Tu écris la formule, rien d’autre.</strong> Exemples : 1d20+24, 1d8+22, 2d6+10. Un moins marche aussi : 1d20-2.</p>
+    <p><strong>Tu écris la formule, rien d’autre.</strong> Un seul groupe de dés, puis un bonus. Exemples : 1d20+24, 1d8+22, 2d6+10, 3d8-2, 4d6, 1d100.</p>
     <p>Le gros chiffre est le total. La ligne verte est déjà copiée : colle-la dans le chat.</p>
-    <p>Brut, c’est la face du dé, avant le + ou le −.</p>
-    <p>Un autre jet : change la formule, puis Tirer. Ne rappuie pas deux fois pour le même jet. Ça relance.</p>
+    <p>Brut, c’est seulement la face du dé. Le + ou le − n’y entre pas.</p>
+    <p>1d20+2d6 est refusé. Un mauvais texte ne change pas le dernier jet.</p>
+    <p>Un autre jet : change la formule, puis Tirer. Un deuxième clic relance.</p>
   </div>
 </main>
 <script>
@@ -39,52 +40,60 @@ function rnd(sides) {
   var max = Math.floor(4294967296 / sides) * sides;
   var buf = new Uint32Array(1);
   var x;
-  do { crypto.getRandomValues(buf); x = buf[0]; } while (x >= max);
+  do {
+    crypto.getRandomValues(buf);
+    x = buf[0];
+  } while (x >= max);
   return (x % sides) + 1;
 }
 function roll(expr) {
-  var raw = String(expr).replace(/\s+/g, "");
-  if (!raw) throw new Error("Écris une formule. Exemple : 1d20+5");
-  if (raw[0] !== "+" && raw[0] !== "-") raw = "+" + raw;
-  var parts = raw.match(/[+-][^+-]+/g);
-  if (!parts) throw new Error("Formule illisible.");
-  var total = 0, bruts = [];
-  for (var i = 0; i < parts.length; i++) {
-    var sign = parts[i][0] === "-" ? -1 : 1;
-    var body = parts[i].slice(1);
-    var m = body.match(/^(\d*)d(\d+)$/i);
-    if (m) {
-      var n = parseInt(m[1] || "1", 10);
-      var sides = parseInt(m[2], 10);
-      if (n < 1 || n > 40 || sides < 2 || sides > 100) throw new Error("Dé refusé.");
-      for (var k = 0; k < n; k++) {
-        var r = rnd(sides);
-        bruts.push(r);
-        total += sign * r;
-      }
-    } else if (/^\d+$/.test(body)) {
-      total += sign * parseInt(body, 10);
-    } else {
-      throw new Error("Seulement des dés. Exemple : 1d20+16");
-    }
+  var raw = String(expr).trim();
+  var m = raw.match(/^(\d+)[dD](\d+)\s*(?:([+-])\s*(\d+))?$/);
+  if (!m) throw new Error("Formule refusée. Un seul groupe de dés, puis un bonus. Exemple : 1d20+24");
+  if (String(parseInt(m[1], 10)) !== m[1] || String(parseInt(m[2], 10)) !== m[2]) {
+    throw new Error("Formule refusée. Exemple : 1d20+24");
   }
-  return { expr: String(expr).replace(/\s+/g, ""), bruts: bruts, total: total };
+  var n = parseInt(m[1], 10);
+  var sides = parseInt(m[2], 10);
+  if (n < 1 || n > 40) throw new Error("Entre 1 et 40 dés.");
+  if (sides < 2 || sides > 100) throw new Error("Le dé doit aller de d2 à d100.");
+  var mod = 0;
+  var modText = "";
+  if (m[3]) {
+    if (String(parseInt(m[4], 10)) !== m[4]) throw new Error("Formule refusée. Exemple : 1d20+24");
+    mod = parseInt(m[4], 10);
+    if (m[3] === "-") mod = -mod;
+    modText = m[3] + m[4];
+  }
+  var bruts = [];
+  var sum = 0;
+  var k, r;
+  for (k = 0; k < n; k++) {
+    r = rnd(sides);
+    bruts.push(r);
+    sum += r;
+  }
+  return { expr: n + "d" + sides + modText, bruts: bruts, total: sum + mod };
 }
 document.getElementById("go").onclick = function () {
   var err = document.getElementById("err");
   var out = document.getElementById("out");
   var line = document.getElementById("line");
   err.textContent = "";
+  var g;
   try {
-    var g = roll(document.getElementById("expr").value);
-    out.textContent = String(g.total);
-    var text = g.expr + " | brut [" + (g.bruts.join(",") || "—") + "] | total " + g.total;
-    line.textContent = text;
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(function () {});
+    g = roll(document.getElementById("expr").value);
   } catch (e) {
-    out.textContent = "";
-    line.textContent = "";
     err.textContent = String(e.message || e);
+    return;
+  }
+  out.textContent = String(g.total);
+  var text = g.expr + " | brut [" + g.bruts.join(",") + "] | total " + g.total;
+  line.textContent = text;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(function () {
+      err.textContent = "Copie la ligne verte à la main.";
+    });
   }
 };
 </script>
