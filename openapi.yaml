@@ -1,0 +1,44 @@
+openapi: 3.1.0
+info:
+  title: Azula dice_roll
+  version: "2"
+  description: Seule source de hasard. Un groupe de dés et un bonus. Ne calcule aucune règle.
+servers:
+  - url: https://REMPLACER-PAR-L-URL-PUBLIQUE
+paths:
+  /dice_roll:
+    post:
+      operationId: dice_roll
+      summary: Lancer une formule déjà fixée
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [formula, id]
+              properties:
+                formula:
+                  type: string
+                  description: Exemples 1d20+16, 2d6+10, 1d8-2
+                id:
+                  type: string
+                  description: Identifiant unique de ce jet
+      responses:
+        "200":
+          description: Jet réel
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  expr: {type: string}
+                  bruts:
+                    type: array
+                    items: {type: integer}
+                  total: {type: integer}
+                  line: {type: string}
+                  replay: {type: boolean}
+        "400":
+          description: Formule refusée, aucun dé lancé
