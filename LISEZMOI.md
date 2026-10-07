@@ -1,13 +1,17 @@
-# Dés PF1
+# dice_roll — projet Azula
 
-La page `index.html` est le lanceur humain. Elle n'est pas un outil que ChatGPT peut appeler.
+Outil unique : `dice_roll`.
 
-`mcp_server.py` est le serveur MCP. Son seul outil est `roll`.
+Appel :
 
 ```json
 {"formula":"1d20+16","id":"AZULA-ATT1"}
 ```
 
-Réponse : `expr`, `bruts`, `total`, `line`.
+Réponse à citer mot pour mot :
 
-ChatGPT n'est pas connecté par ce dépôt. Le mode développeur n'accepte qu'une adresse HTTPS publique (SSE ou HTTP streamable), pas une page GitHub. Ce fichier écoute seulement sur 127.0.0.1 tant qu'il n'est pas hébergé.
+```text
+1d20+16 | brut [13] | total 29
+```
+
+GPT ne l'a pas tant que ce schéma n'est pas collé dans Actions du GPT, avec une URL HTTPS publique à la place de `https://REMPLACER-PAR-L-URL-PUBLIQUE`. Un fichier GitHub n'est pas un outil callable.
